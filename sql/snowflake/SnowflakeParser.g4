@@ -3839,6 +3839,7 @@ non_reserved_words
     | NULLIF
     | NVL
     | OFFSET
+    | OKTA
     | OLD
     | ON_CREATE
     | ON_ERROR
@@ -4061,7 +4062,7 @@ expr
     | expr IS (null_not_null | not_distinct_from expr)
     | expr NOT? IN LR_BRACKET (subquery | expr_list) RR_BRACKET
     | expr NOT? ( LIKE | ILIKE) expr (ESCAPE expr)?
-    | expr NOT? RLIKE expr
+    | expr NOT? (RLIKE | REGEXP) expr
     | expr NOT? (LIKE | ILIKE) ANY LR_BRACKET expr (COMMA expr)* RR_BRACKET (ESCAPE expr)?
     | primitive_expression //Should be latest rule as it's nearly a catch all
     ;
@@ -4179,9 +4180,26 @@ asc_desc
     ;
 
 over_clause
-    : OVER '(' partition_by order_by_expr? ')'
-    | OVER '(' order_by_expr ')'
-    | OVER '(' ')'
+    : OVER '(' partition_by order_by_expr? window_frame? ')'
+    | OVER '(' order_by_expr window_frame? ')'
+    | OVER '(' window_frame? ')'
+    ;
+
+window_frame
+    : rows_range BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    | rows_range BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+    | rows_range BETWEEN num preceding_following AND num preceding_following
+    | rows_range BETWEEN UNBOUNDED PRECEDING AND num preceding_following
+    | rows_range BETWEEN num preceding_following AND UNBOUNDED FOLLOWING
+    | rows_range UNBOUNDED PRECEDING
+    ;
+
+rows_range
+    : ROWS | RANGE
+    ;
+
+preceding_following
+    : PRECEDING | FOLLOWING
     ;
 
 function_call
@@ -4199,6 +4217,7 @@ function_call
     | to_date = ( TO_DATE | DATE) LR_BRACKET expr RR_BRACKET
     | length = ( LENGTH | LEN) LR_BRACKET expr RR_BRACKET
     | TO_BOOLEAN LR_BRACKET expr RR_BRACKET
+    | (EXTRACT | DATE_PART) LR_BRACKET id_ FROM expr RR_BRACKET
     ;
 
 param_assoc_list
@@ -4422,8 +4441,8 @@ table_source_item_joined
     ;
 
 object_ref
-    : object_name at_before? changes? match_recognize? pivot_unpivot? as_alias? column_list_in_parentheses? sample?
-    | object_name START WITH predicate CONNECT BY prior_list?
+    : object_name_or_identifier at_before? changes? match_recognize? pivot_unpivot? as_alias? column_list_in_parentheses? sample?
+    | object_name_or_identifier START WITH predicate CONNECT BY prior_list?
     | TABLE '(' function_call ')' pivot_unpivot? as_alias? sample?
     | values_table sample?
     | LATERAL? '(' subquery ')' pivot_unpivot? as_alias? column_list_in_parentheses?
@@ -4625,7 +4644,7 @@ predicate
     | expr NOT? BETWEEN expr AND expr
     | expr NOT? IN '(' (subquery | expr_list) ')'
     | expr NOT? (LIKE | ILIKE) expr (ESCAPE expr)?
-    | expr NOT? RLIKE expr
+    | expr NOT? (RLIKE | REGEXP) expr
     | expr NOT? (LIKE | ILIKE) ANY LR_BRACKET expr (COMMA expr)* RR_BRACKET (ESCAPE expr)?
     | expr IS null_not_null
     | expr
