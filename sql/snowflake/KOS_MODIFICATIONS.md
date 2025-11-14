@@ -73,6 +73,27 @@ This fork contains the ANTLR Snowflake grammar used by the data.world KOS Snowfl
 
 ---
 
+### 2025-11-06 - Bind Variable Support for Stored Procedures
+
+**Status**: Grammar enhanced to support bind variables in stored procedure parameters
+
+**Changes to SnowflakeParser.g4:**
+
+1. **Added bind variable support to primitive_expression** (line 4151)
+   - **Issue**: Stored procedures with parameters use bind variables (`:param_name`) which were causing parse errors
+   - **Change**: Added `COLON id_` as first alternative in `primitive_expression` rule
+   - **Reason**: Enables parsing of INSERT/UPDATE statements with bind variables in stored procedure bodies
+   - **Example Syntax**:
+     ```sql
+     INSERT INTO table (col1, col2) VALUES (:param1, :param2);
+     UPDATE table SET col = :newValue WHERE id = :id;
+     ```
+   - **Important**: Must come BEFORE `id_ ('.' id_)*` to avoid conflicting with JSON field access (`col:field.subfield`)
+   - **Testing**: Tested via SnowflakeAntlrInsertUpdateParserTest, all JSON variant tests continue to pass
+   - **Upstream Compatible**: Yes - bind variables are standard SQL/Snowflake feature
+
+---
+
 ## Future Modifications Template
 
 When making additional changes, document them here:

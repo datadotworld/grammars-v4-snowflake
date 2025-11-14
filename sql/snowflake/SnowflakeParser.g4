@@ -4148,6 +4148,7 @@ vector_element_type
 primitive_expression
     : DEFAULT //?
     | NULL_
+    | COLON id_  // bind variable
     | id_ ('.' id_)* // json field access
     | id_ '.' STAR
     | full_column_name
