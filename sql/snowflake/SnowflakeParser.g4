@@ -3794,6 +3794,7 @@ non_reserved_words
     | COMMENT
     | CONFIGURATION
     | DATA
+    | DATABASE
     | DAYS
     | DEFINITION
     | DELTA
@@ -3826,6 +3827,7 @@ non_reserved_words
     | INPUT
     | INTERVAL
     | JAVASCRIPT
+    | JSON
     | LAST_NAME
     | LAST_QUERY_ID
     | LEAD
@@ -4372,12 +4374,20 @@ select_list_elem
     ;
 
 column_elem_star
-    : object_name_or_alias? STAR
+    : (object_name | alias) DOT STAR
+    | STAR
     ;
 
 column_elem
-    : object_name_or_alias? column_name
+    : qualified_column_name
     | object_name_or_alias? DOLLAR column_position
+    ;
+
+qualified_column_name
+    : id_ DOT id_ DOT id_ DOT id_  // db.schema.table.column
+    | id_ DOT id_ DOT id_           // schema.table.column
+    | id_ DOT id_                   // table.column
+    | id_                           // column
     ;
 
 object_name_or_alias

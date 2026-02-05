@@ -94,6 +94,75 @@ This fork contains the ANTLR Snowflake grammar used by the data.world KOS Snowfl
 
 ---
 
+### 2025-12-01 - Reserved Word Support for DATABASE and JSON
+
+**Status**: Grammar enhanced to allow DATABASE and JSON as column/table names
+
+**Changes to SnowflakeParser.g4:**
+
+1. **Added DATABASE to non-reserved words** (line 3797)
+   - **Issue**: Customer uses "database" as a column name, causing parse failures
+   - **Change**: Added `| DATABASE` to `non_reserved_words` rule (between DATA and DAYS)
+   - **Reason**: Snowflake allows DATABASE as an identifier when not in a reserved context (e.g., CREATE DATABASE)
+   - **Example Syntax**: `SELECT foo, bar, database FROM t`
+   - **Testing**: Tested via SnowflakeAntlrParserTest.testDatabaseNameIdentifier
+
+2. **Added JSON to non-reserved words** (line 3830)
+   - **Issue**: Customer uses "JSON" as a column name with colon accessor, causing parse failures
+   - **Change**: Added `| JSON` to `non_reserved_words` rule (between JAVASCRIPT and LAST_NAME)
+   - **Reason**: Snowflake allows JSON as an identifier, particularly common with variant data type columns
+   - **Example Syntax**: `SELECT JSON:VehicleId::STRING FROM my_table`
+   - **Testing**: Tested via SnowflakeAntlrParserTest.testJsonColumnNameWithAccessor
+
+**Upstream Compatible**: Yes - these tokens should be allowed as identifiers in non-reserved contexts
+
+---
+
+### 2025-12-08 - Improved Column and Table.* Parsing
+
+**Status**: Grammar refactored to eliminate ambiguity in column qualification and star selection
+
+**Changes to SnowflakeParser.g4:**
+
+1. **Added qualified_column_name rule** (lines 4386-4391)
+   - **Issue**: Parser ambiguity with implicit aliases - `SELECT A.B.C ALIAS FROM ...` was incorrectly parsed as object_name=A.B.C + column_name=ALIAS instead of schema.table.column with alias
+   - **Change**: Created new `qualified_column_name` rule with explicit qualification levels:
+     ```antlr
+     qualified_column_name
+         : id_ DOT id_ DOT id_ DOT id_  // db.schema.table.column
+         | id_ DOT id_ DOT id_           // schema.table.column
+         | id_ DOT id_                   // table.column
+         | id_                           // column
+         ;
+     ```
+   - **Reason**: Makes column qualification unambiguous - parser can directly determine qualification level
+   - **Example Syntax**:
+     - `SELECT MYSCHEMA.MYTABLE.COL ALIAS FROM ...` - correctly parsed as 3-part qualified column with alias
+     - `SELECT COL1, TABLE.COL2 AS ALIAS2 FROM ...` - both implicit and explicit aliases work correctly
+
+2. **Updated column_elem to use qualified_column_name** (lines 4381-4384)
+   - **Change**: Changed from `object_name_or_alias? column_name` to `qualified_column_name`
+   - **Note**: Kept `object_name_or_alias? DOLLAR column_position` for positional column references (e.g., `SELECT $1, TABLE.$2`)
+   - **Result**: Eliminates ambiguity between table qualification and column name
+
+3. **Fixed column_elem_star to require explicit DOT before STAR** (lines 4376-4379)
+   - **Issue**: `object_name_or_alias? STAR` allowed ambiguous patterns where table.* syntax wasn't clearly distinguished
+   - **Change**: Changed to explicit alternatives:
+     ```antlr
+     column_elem_star
+         : (object_name | alias) DOT STAR
+         | STAR
+         ;
+     ```
+   - **Reason**: Makes table.* syntax unambiguous - either bare `SELECT *` or qualified `SELECT table.*`
+   - **Example Syntax**: `SELECT t1.*, t2.*, * FROM ...` - all star patterns parse correctly
+
+**Testing**: All existing tests continue passing, new tests added for qualification levels and implicit/explicit aliases
+
+**Upstream Compatible**: Yes - these changes clarify legitimate Snowflake SQL patterns without changing supported syntax
+
+---
+
 ## Future Modifications Template
 
 When making additional changes, document them here:
